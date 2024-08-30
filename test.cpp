@@ -10,6 +10,5 @@ int main() {
     while (iss >> word) {
         std::cout << word << std::endl;  // Output each word on a new line
     }
-
     return 0;
 }
