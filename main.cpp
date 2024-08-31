@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 using namespace std;
+#define ll long long
 
 inline void ltrim(std::string &s)
 {
@@ -21,11 +22,11 @@ inline void trim(std::string &s)
     ltrim(s);
 }
 
-string toBinary(int num, int num_digits)
+string toBinary(ll num, int num_digits)
 {
     if (num < 0)
     {
-        num = (1 << num_digits) + num;
+        num = ((1LL) << num_digits) + num;
     }
     string binary;
     while (num > 0)
@@ -178,6 +179,106 @@ void R_format(map<string, string> &m_opcode,
     cout << hexenc << "\n";
 }
 
+void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno)
+{
+    string temp = line;
+    int i = 0;
+    rs1="",rs2="",imm="";
+
+    trim(temp);
+    while(i<temp.length()&&temp[i]!=' ')
+    {
+        i++;
+    }
+    cmd=temp.substr(0,i);
+    temp=temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!=',')
+    {
+        i++;
+    }
+    rs2=temp.substr(0,i);
+    i++;
+    temp=temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!='(')
+    {
+        i++;
+    }
+    imm = temp.substr(0,i);
+    i++;
+    temp = temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!=')')
+    {
+        i++;
+    }
+    rs1 = temp.substr(0,i);
+    // cout<<"imm is "<<imm<< ",\n";
+    if(imm.compare("")==0)
+    {
+        cerr << "missing immediate value in line " << lineno << "\n";
+        exit(0);
+    }
+    else if(rs1.compare("")==0||rs2.compare("")==0)
+    {
+        cerr << "missing register value in line " << lineno << "\n";
+        exit(0);
+    }
+    // using start check to start checking the starting point of numerical values after ignoring negative sign
+    int start_check=0;
+    if(imm.length()>0&&imm[0]=='-')
+    start_check=1;
+    for(int i=start_check;i<imm.length();i++)
+    {
+        char c=imm[i];
+        if(c<'0'||c>'9')
+        {
+            cerr << "incorrect immediate value in line " << lineno << "\n";
+            exit(0);
+        }
+    } 
+}
+
+void S_format(map<string, string> &m_opcode,
+              map<string, char> &m_format,
+              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+{
+    string temp = line;
+     int i = 0;
+    string cmd, rs1, rs2, funct3, imm, opcode;
+    if (command.compare("sb") == 0 || command.compare("sh") == 0 || command.compare("sw") == 0 || command.compare("sd") == 0)
+    {
+        S_format_case(cmd, rs1, rs2, imm, line,lineno);
+    }
+    rs1 = alias[rs1];
+    rs2 = alias[rs2];
+    if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31)
+    {
+        cerr << "incorrect register value\n in line " << lineno << "\n";
+        exit(0);
+    }
+    opcode = m_opcode[cmd];
+    rs1 = toBinary(stoi((alias[rs1]).substr(1)), 5);
+    rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
+    funct3 = toBinary(m_funct3[cmd], 3);
+    imm = toBinary(stoi(imm), 12);
+    string t = imm;
+    reverse(t.begin(), t.end());
+    string imm1 = t.substr(0, 5);
+    string imm2 = t.substr(5);
+
+    reverse(imm1.begin(), imm1.end());
+    reverse(imm2.begin(), imm2.end());
+    string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
+    string hexenc = to_hex(binenc);
+    cout << hexenc << "\n";
+}
+
+
 void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno)
 {
     string temp = line;
@@ -251,6 +352,79 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
     }    
 }
 
+void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno)
+{
+    string temp = line;
+    int i = 0;
+    rs1="",rd="",imm="";
+
+    trim(temp);
+    while(i<temp.length()&&temp[i]!=' ')
+    {
+        i++;
+    }
+    cmd=temp.substr(0,i);
+    temp=temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!=',')
+    {
+        i++;
+    }
+    rd=temp.substr(0,i);
+    i++;
+    temp=temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!='(')
+    {
+        i++;
+    }
+    imm=temp.substr(0,i);
+    i++;
+    temp=temp.substr(i);
+    trim(temp);
+    i=0;
+    while(i<temp.length()&&temp[i]!=')')
+    {
+        i++;
+    }
+    rs1=temp.substr(0,i);
+    if(cmd.compare("jalr")==0)
+    {
+        string t=rs1;
+        rs1=imm;
+        imm=t;
+        // swap(rs1,imm);
+    }
+    // cout<<cmd<<","<<rd<<","<<rs1<<","<<imm<<",\n";
+    // cout<<"imm is "<<imm<< ",\n";
+    if(imm.compare("")==0)
+    {
+        cerr << "missing immediate value in line " << lineno << "\n";
+        exit(0);
+    }
+    else if(rs1.compare("")==0||rd.compare("")==0)
+    {
+        cerr << "missing register value in line " << lineno << "\n";
+        exit(0);
+    }
+
+    // using start check to start checking the starting point of numerical values after ignoring negative sign
+    int start_check=0;
+    if(imm.length()>0&&imm[0]=='-')
+    start_check=1;
+    for(int i=start_check;i<imm.length();i++)
+    {
+        char c=imm[i];
+        if(c<'0'||c>'9')
+        {
+            cerr << "incorrect immediate value in line " << lineno << "\n";
+            exit(0);
+        }
+    }    
+}
+
 void I_format(map<string, string> &m_opcode,
               map<string, char> &m_format,
               map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
@@ -265,6 +439,11 @@ void I_format(map<string, string> &m_opcode,
     else
     {
         // adding format of case 2
+        // if(command.compare("jalr")!=0)
+        I_format_case2(cmd, rs1, rd, imm, line,lineno);
+        // else
+        // I_format_case2(cmd, imm, rd, rs1, line,lineno);
+
     }
     // cout << alias[rs1] << "\n";
     // cout << alias[rd] << "\n";
@@ -281,8 +460,56 @@ void I_format(map<string, string> &m_opcode,
     rd = toBinary(stoi((alias[rd]).substr(1)), 5);
     funct3 = toBinary(m_funct3[cmd], 3);
 
+    set<string>case1={"addi","xori","ori","andi","slli", "srli", "srai"};
+    if(case1.count(cmd)>0)
     imm = toBinary(stoi(imm), 12);
+    else
+    {
+        char bit='0';int start=64;
+        // "entering case 2";
+        if(cmd.compare("lb")==0)
+        {
+            imm=toBinary(stoi(imm), 40);
+            reverse(imm.begin(),imm.end());
+            bit=imm[7];start=8;
+        }
+        else if(cmd.compare("lh")==0)
+        {
+            imm=toBinary(stoi(imm), 40);
+            reverse(imm.begin(),imm.end());
+            bit=imm[15];start=16;
+        }
+        else if(cmd.compare("lw")==0)
+        {
+            imm=toBinary(stoi(imm),40);
+            reverse(imm.begin(),imm.end());
+            bit=imm[31];start=32;
+        }
+        else if(cmd.compare("ld")==0)
+        {
+            imm=toBinary(stoi(imm), 40);
+            reverse(imm.begin(),imm.end());
+        }
+        else{
+            imm=toBinary(stoi(imm), 40);
+            reverse(imm.begin(),imm.end());
+        }
+        for(int i=start;i<40;i++)
+        {
+            imm[i]=bit;
+        }
 
+        if(cmd.compare("lbu")==0||cmd.compare("lhu")==0||cmd.compare("lwu")==0)
+        {
+            for(int i=start;i<40;i++)
+            {
+                imm[i]='0';
+            }
+        }   
+        imm=imm.substr(0,12);
+        reverse(imm.begin(),imm.end());
+        // cout<<"imm value is  "<<imm<<endl;   
+    }
     int cnt = 12;
     for (int i = 0; i < 12; i++)
     {
@@ -339,10 +566,26 @@ int main()
     m_opcode["slli"] = "0010011";
     m_opcode["srli"] = "0010011";
     m_opcode["srai"] = "0010011";
+    m_opcode["jalr"]="1100111";
+
+    m_opcode["lb"]="0000011";
+    m_opcode["lh"]="0000011";
+    m_opcode["lw"]="0000011";
+    m_opcode["ld"]="0000011";
+    m_opcode["lbu"]="0000011";
+    m_opcode["lhu"]="0000011";
+    m_opcode["lwu"]="0000011";
+
+    m_opcode["sb"] = "0100011";
+    m_opcode["sh"] = "0100011";
+    m_opcode["sw"] = "0100011";
+    m_opcode["sd"] = "0100011";
 
     m_format["0110011"] = 'R';
     m_format["0010011"] = 'I';
     m_format["0000011"] = 'I';
+    m_format["0100011"] = 'S';
+    m_format["1100111"]='I';
 
     m_funct3["add"] = 0;
     m_funct3["sub"] = 0;
@@ -360,6 +603,22 @@ int main()
     m_funct3["slli"] = 1;
     m_funct3["srli"] = 5;
     m_funct3["srai"] = 5;
+
+    m_funct3["lb"]=0;
+    m_funct3["lh"]=1;
+    m_funct3["lw"]=2;
+    m_funct3["ld"]=3;
+    m_funct3["lbu"]=4;
+    m_funct3["lhu"]=5;
+    m_funct3["lwu"]=6;
+
+    m_funct3["jalr"]=0;
+
+    m_funct3["sb"] = 0;
+    m_funct3["sh"] = 1;
+    m_funct3["sw"] = 2;
+    m_funct3["sd"] = 3;
+
 
     map<string, string> alias;
     alias["zero"] = "x0";
@@ -427,8 +686,11 @@ int main()
             {
                 I_format(m_opcode, m_format, m_funct3, alias, line, firstWord, lineno);
             }
+            else if(format == 'S')
+            {
+                S_format(m_opcode, m_format, m_funct3, alias, line, firstWord, lineno);
+            }
         }
-        // cout << line << std::endl;
     }
     infile.close();
     return 0;
