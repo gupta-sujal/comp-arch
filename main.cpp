@@ -165,7 +165,6 @@ void R_format(map<string, string> &m_opcode,
         exit(0);
     }
     opcode = m_opcode[cmd];
-    // cout<<alias[rs1]<<" "<<alias[rd]<<"\n";
     rs1 = toBinary(stoi((alias[rs1]).substr(1)), 5);
     rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
     rd = toBinary(stoi((alias[rd]).substr(1)), 5);
@@ -243,9 +242,7 @@ void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
     } 
 }
 
-void S_format(map<string, string> &m_opcode,
-              map<string, char> &m_format,
-              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
 {
     string temp = line;
      int i = 0;
@@ -254,6 +251,9 @@ void S_format(map<string, string> &m_opcode,
     {
         S_format_case(cmd, rs1, rs2, imm, line,lineno);
     }
+    // cout << alias[rs2] << "\n";
+    // cout << alias[rs1] << "\n";
+    // cout << imm << "\n";
     rs1 = alias[rs1];
     rs2 = alias[rs2];
     if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31)
@@ -262,9 +262,26 @@ void S_format(map<string, string> &m_opcode,
         exit(0);
     }
     opcode = m_opcode[cmd];
+    // cout << opcode << "\n";
     rs1 = toBinary(stoi((alias[rs1]).substr(1)), 5);
     rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
     funct3 = toBinary(m_funct3[cmd], 3);
+    // cout << funct3 << "\n";
+    int sign=1;
+    int value_imm=0;
+    if(imm[0]=='-')
+    {
+        sign=-1;
+        value_imm=stoi(imm.substr(1));
+    }
+    else
+    value_imm=stoi(imm);
+    value_imm=sign*stoi(imm);
+    if(value_imm<-2048||value_imm>2047)
+    {
+        cerr << "the immediate value is out of bounds of 12 bits in line no "<<lineno<<endl;
+        exit(0);
+    }
     imm = toBinary(stoi(imm), 12);
     string t = imm;
     reverse(t.begin(), t.end());
@@ -273,11 +290,109 @@ void S_format(map<string, string> &m_opcode,
 
     reverse(imm1.begin(), imm1.end());
     reverse(imm2.begin(), imm2.end());
+    // cout << imm1 << "\n";
+    // cout << imm2 << "\n";
     string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
+    // cout << binenc << "\n";
     string hexenc = to_hex(binenc);
     cout << hexenc << "\n";
 }
 
+void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno , map<string, int> &label_lineno){
+    string temp = line;
+    int i = 0;
+    rs1 = "", rs2 = "", imm = "";
+    while (true)
+    {
+        string firstWord = getFirstWord(temp);
+        // cout << alias[firstWord] << "\n";
+        if (i == 0)
+        {
+            cmd = firstWord;
+        }
+        else if (i == 1)
+        {
+            rs1 = firstWord;
+        }
+        else if (i == 2)
+        {
+            rs2 = firstWord;
+        }
+        else if (i == 3)
+        {
+            string label = firstWord;
+                if(label_lineno.find(label) == label_lineno.end()){
+                cout << "Incorrect Label Used" << "\n";
+                exit(0);
+            }
+            // cout << lineno;
+            int val = (label_lineno[label] - lineno - 1)*4;
+            // cout << val;
+            imm = to_string(val);
+        }
+        i++;
+        if (i == 4)
+            break;
+        if (i == 1)
+        {
+            int ind_sp = temp.find(' ');
+            if(ind_sp==string::npos)
+            {
+                cerr << "missing value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_sp + 1);
+            trim(temp);
+        }
+        else
+        {
+            int ind_cm = temp.find(',');
+            if(ind_cm==string::npos)
+            {
+                cerr << "missing register or immediate value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_cm + 1);
+            trim(temp);
+        }
+    }
+}
+
+void B_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3,map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno)
+{
+
+    string temp = line;
+     int i = 0;
+    string cmd, rs1, rs2, funct3, imm, opcode;
+    if (command.compare("beq") == 0 || command.compare("bne") == 0 || command.compare("blt") == 0 || command.compare("bge") == 0 || command.compare("bltu") == 0 || command.compare("bgeu") == 0)
+    {
+        B_format_case(cmd, rs1, rs2, imm, line,lineno, label_lineno);
+    }
+    rs1 = alias[rs1];
+    rs2 = alias[rs2];
+    if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31)
+    {
+        cerr << "incorrect register value\n in line " << lineno << "\n";
+        exit(0);
+    }
+
+    
+    opcode = m_opcode[cmd];
+    rs1 = toBinary(stoi((alias[rs1]).substr(1)), 5);
+    rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
+    funct3 = toBinary(m_funct3[cmd], 3);
+    imm = toBinary(stoi(imm), 13);
+    string t = imm;
+    reverse(t.begin(), t.end());
+    string imm1 = t[11] + t.substr(1, 4);
+    string imm2 = t.substr(5, 6) + t[12];
+
+    reverse(imm1.begin(), imm1.end());
+    reverse(imm2.begin(), imm2.end());
+    string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
+    string hexenc = to_hex(binenc);
+    cout << hexenc << "\n";
+}
 
 void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno)
 {
@@ -546,6 +661,158 @@ void I_format(map<string, string> &m_opcode,
     string hexenc = to_hex(binenc);
     cout << hexenc << "\n";
 }
+
+void U_format(map<string, string> &m_opcode,
+              map<string, char> &m_format,
+              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+{
+    string temp=line;
+    int i = 0;
+    string cmd, rd, imm, opcode;
+    while (true)
+    {
+        string firstWord = getFirstWord(temp);
+        // cout << alias[firstWord] << "\n";
+        if (i == 0)
+        {
+            cmd = firstWord;
+        }
+        else if (i == 1)
+        {
+            rd = firstWord;
+        }
+        else if (i == 2)
+        {
+            imm = firstWord;
+        }
+        i++;
+        if (i == 3)
+            break;
+        if (i == 1)
+        {
+            int ind_sp = temp.find(' ');
+            if(ind_sp==string::npos)
+            {
+                cerr << "missing value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_sp + 1);
+            trim(temp);
+        }
+        else
+        {
+            int ind_cm = temp.find(',');
+            if(ind_cm==string::npos)
+            {
+                cerr << "missing register or immediate value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_cm + 1);
+            trim(temp);
+        }
+    }
+    rd = alias[rd];
+    if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
+    {
+        cerr << "incorrect register value\n in line " << lineno << "\n";
+        exit(0);
+    }
+    opcode = m_opcode[cmd];
+    rd = toBinary(stoi((alias[rd]).substr(1)), 5);
+    
+    string binenc = imm+ rd + opcode;
+    string hexenc = to_hex(binenc);
+    cout << hexenc << "\n";
+
+}
+
+void J_format_case(string &cmd, string &rd, string &imm, string &line, int lineno , map<string, int> &label_lineno){
+     string temp = line;
+    int i = 0;
+    rd = "", imm = "";
+    while (true)
+    {
+        string firstWord = getFirstWord(temp);
+        // cout << alias[firstWord] << "\n";
+        if (i == 0)
+        {
+            cmd = firstWord;
+        }
+        else if (i == 1)
+        {
+            rd = firstWord;
+        }
+        else if (i == 2)
+        {
+            string label = firstWord;
+                if(label_lineno.find(label) == label_lineno.end()){
+                cout << "Incorrect Label Used" << "\n";
+                exit(0);
+            }
+            // cout << lineno;
+            int val = (label_lineno[label] - lineno - 1)*4;
+            // cout << val;
+            imm = to_string(val);
+        }
+        i++;
+        if (i == 3)
+            break;
+        if (i == 1)
+        {
+            int ind_sp = temp.find(' ');
+            if(ind_sp==string::npos)
+            {
+                cerr << "missing value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_sp + 1);
+            trim(temp);
+        }
+        else
+        {
+            int ind_cm = temp.find(',');
+            if(ind_cm==string::npos)
+            {
+                cerr << "missing register or immediate value in line " << lineno << "\n";
+                exit(0);
+            }
+            temp = temp.substr(ind_cm + 1);
+            trim(temp);
+        }
+    }
+}
+
+void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno){
+
+     string temp = line;
+     int i = 0;
+    string cmd, rd, funct3, imm, opcode;
+    if (command.compare("jal") == 0)
+    {
+        J_format_case(cmd, rd, imm, line,lineno, label_lineno);
+    }
+    rd = alias[rd];
+    
+    if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
+    {
+        cerr << "incorrect register value\n in line " << lineno << "\n";
+        exit(0);
+    }
+
+    
+    opcode = m_opcode[cmd];
+    rd = toBinary(stoi((alias[rd]).substr(1)), 5);
+    imm = toBinary(stoi(imm), 21);
+    string t = imm;
+    reverse(t.begin(), t.end());
+    imm = t.substr(12, 8) + t[11] + t.substr(1, 10) + t[20];
+    reverse(imm.begin(), imm.end());
+    string binenc = imm + rd + opcode;
+    string hexenc = to_hex(binenc);
+    cout << hexenc << "\n";
+}
+
+
 int main()
 {
     map<string, string> m_opcode;
@@ -566,7 +833,7 @@ int main()
     m_opcode["slli"] = "0010011";
     m_opcode["srli"] = "0010011";
     m_opcode["srai"] = "0010011";
-    m_opcode["jalr"]="1100111";
+    m_opcode["jalr"] = "1100111";
 
     m_opcode["lb"]="0000011";
     m_opcode["lh"]="0000011";
@@ -581,11 +848,21 @@ int main()
     m_opcode["sw"] = "0100011";
     m_opcode["sd"] = "0100011";
 
+    m_opcode["beq"] = "1100011";
+    m_opcode["bne"] = "1100011";
+    m_opcode["blt"] = "1100011";
+    m_opcode["bge"] = "1100011";
+    m_opcode["bltu"] = "1100011";
+    m_opcode["bgeu"] = "1100011";
+    m_opcode["jal"] = "1101111";
+
     m_format["0110011"] = 'R';
     m_format["0010011"] = 'I';
     m_format["0000011"] = 'I';
     m_format["0100011"] = 'S';
-    m_format["1100111"]='I';
+    m_format["1100111"] ='I';
+    m_format["1100011"] = 'B';
+    m_format["1101111"] = 'J';
 
     m_funct3["add"] = 0;
     m_funct3["sub"] = 0;
@@ -619,6 +896,13 @@ int main()
     m_funct3["sw"] = 2;
     m_funct3["sd"] = 3;
 
+    m_funct3["beq"] = 0;
+    m_funct3["bne"] = 1;
+    m_funct3["blt"] = 4;
+    m_funct3["bge"] = 5;
+    m_funct3["bltu"] = 6;
+    m_funct3["bgeu"] = 7;
+    m_funct3["jal"] = 0;
 
     map<string, string> alias;
     alias["zero"] = "x0";
@@ -664,13 +948,32 @@ int main()
         return 1;
     }
 
+    map<string, int> label_lineno;
     string line;
+    vector<string> instructions;
     int lineno = 0;
-    while (getline(infile, line))
-    {
+
+    int i = 0;
+    while(getline(infile, line)){
         lineno++;
-        string firstWord = getFirstWord(line);
-        if (m_opcode.find(firstWord) == m_opcode.end())
+        string temp = getFirstWord(line);
+        if(line.find(':') != -1){
+            int mini = min(line.find(':'), line.find(' '));
+            string label = line.substr(0, mini);
+            line = line.substr(mini + 1);
+            label_lineno[label] = lineno;
+            trim(line);
+        }
+        instructions.push_back(line);      
+        // cout << instructions[i] << "\n";
+        i++;
+    }
+
+    for(int i = 0; i < instructions.size(); i++){
+        string newline = instructions[i];
+        string firstWord = getFirstWord(newline);
+        lineno=i+1;
+        if (label_lineno.find(firstWord) == label_lineno.end() && m_opcode.find(firstWord) == m_opcode.end())
         {
             cerr << "Command not found: " << firstWord << " in line " << lineno << endl;
             return 0;
@@ -680,15 +983,21 @@ int main()
             char format = m_format[m_opcode[firstWord]];
             if (format == 'R')
             {
-                R_format(m_opcode, m_format, m_funct3, alias, line, firstWord, lineno);
+                R_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno);
             }
             else if (format == 'I')
             {
-                I_format(m_opcode, m_format, m_funct3, alias, line, firstWord, lineno);
+                I_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno);
             }
             else if(format == 'S')
             {
-                S_format(m_opcode, m_format, m_funct3, alias, line, firstWord, lineno);
+                S_format(m_opcode, m_format, m_funct3,  alias, newline, firstWord, lineno);
+            }
+            else if(format == 'B'){
+                B_format(m_opcode, m_format, m_funct3, label_lineno, alias, newline, firstWord, i);
+            }
+            else if(format == 'J'){
+                J_format(m_opcode, m_format, label_lineno, alias, newline, firstWord, i);
             }
         }
     }
