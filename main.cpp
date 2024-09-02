@@ -267,18 +267,11 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
     funct3 = toBinary(m_funct3[cmd], 3);
     // cout << funct3 << "\n";
-    int sign=1;
-    int value_imm=0;
-    if(imm[0]=='-')
-    {
-        sign=-1;
-        value_imm=stoi(imm.substr(1));
-    }
-    else
-    value_imm=stoi(imm);
-    value_imm=sign*stoi(imm);
+    
+    int value_imm=stoi(imm);
     if(value_imm<-2048||value_imm>2047)
     {
+        cout<<value_imm<<",";
         cerr << "the immediate value is out of bounds of 12 bits in line no "<<lineno<<endl;
         exit(0);
     }
@@ -290,10 +283,7 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
 
     reverse(imm1.begin(), imm1.end());
     reverse(imm2.begin(), imm2.end());
-    // cout << imm1 << "\n";
-    // cout << imm2 << "\n";
     string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
-    // cout << binenc << "\n";
     string hexenc = to_hex(binenc);
     cout << hexenc << "\n";
 }
@@ -693,7 +683,7 @@ void U_format(map<string, string> &m_opcode,
             int ind_sp = temp.find(' ');
             if(ind_sp==string::npos)
             {
-                cerr << "missing value in line " << lineno << "\n";
+                cerr << "missing value in line " << lineno+1 << "\n";
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -704,7 +694,7 @@ void U_format(map<string, string> &m_opcode,
             int ind_cm = temp.find(',');
             if(ind_cm==string::npos)
             {
-                cerr << "missing register or immediate value in line " << lineno << "\n";
+                cerr << "missing register or immediate value in line " << lineno +1<< "\n";
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -714,7 +704,7 @@ void U_format(map<string, string> &m_opcode,
     rd = alias[rd];
     if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
     {
-        cerr << "incorrect register value\n in line " << lineno << "\n";
+        cerr << "incorrect register value\n in line " << lineno+1 << "\n";
         exit(0);
     }
     opcode = m_opcode[cmd];
@@ -723,9 +713,7 @@ void U_format(map<string, string> &m_opcode,
     string binenc = imm+ rd + opcode;
     string hexenc = to_hex(binenc);
     cout << hexenc << "\n";
-
 }
-
 void J_format_case(string &cmd, string &rd, string &imm, string &line, int lineno , map<string, int> &label_lineno){
      string temp = line;
     int i = 0;
@@ -746,10 +734,9 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
         {
             string label = firstWord;
                 if(label_lineno.find(label) == label_lineno.end()){
-                cout << "Incorrect Label Used" << "\n";
+                cout << "Incorrect Label Used in line number " << lineno+1 <<"\n";
                 exit(0);
             }
-            // cout << lineno;
             int val = (label_lineno[label] - lineno - 1)*4;
             // cout << val;
             imm = to_string(val);
@@ -762,7 +749,7 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             int ind_sp = temp.find(' ');
             if(ind_sp==string::npos)
             {
-                cerr << "missing value in line " << lineno << "\n";
+                cerr << "missing value in line " << lineno+1 << "\n";
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -773,7 +760,7 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             int ind_cm = temp.find(',');
             if(ind_cm==string::npos)
             {
-                cerr << "missing register or immediate value in line " << lineno << "\n";
+                cerr << "missing register or immediate value or label in line " << lineno+1 << "\n";
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -795,7 +782,7 @@ void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     
     if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
     {
-        cerr << "incorrect register value\n in line " << lineno << "\n";
+        cerr << "incorrect register value\n in line " << lineno+1<< "\n";
         exit(0);
     }
 
