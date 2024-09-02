@@ -164,6 +164,21 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     rs2 = toBinary(stoi((alias[rs2]).substr(1)), 5);
     funct3 = toBinary(m_funct3[cmd], 3);
     // cout << funct3 << "\n";
+    int sign=1;
+    int value_imm=0;
+    if(imm[0]=='-')
+    {
+        sign=-1;
+        value_imm=stoi(imm.substr(1));
+    }
+    else
+    value_imm=stoi(imm);
+    value_imm=sign*stoi(imm);
+    if(value_imm<-2048||value_imm>2047)
+    {
+        cerr << "the immediate value is out of bounds of 12 bits in line no "<<lineno<<endl;
+        exit(0);
+    }
     imm = toBinary(stoi(imm), 12);
     string t = imm;
     reverse(t.begin(), t.end());
