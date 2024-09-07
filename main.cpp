@@ -447,7 +447,10 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
         cerr << "missing register value in line " << lineno << "\n";
         exit(0);
     }
-    for (int i = 0; i < imm.length(); i++)
+    int start_check = 0;
+    if (imm.length() > 0 && imm[0] == '-')
+        start_check = 1;
+    for (int i = start_check; i < imm.length(); i++)
     {
         char c = imm[i];
         if (c < '0' || c > '9')
