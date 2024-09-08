@@ -2,6 +2,7 @@
 using namespace std;
 #define ll long long
 
+
 inline void ltrim(std::string &s)
 {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch)
@@ -91,7 +92,7 @@ string to_hex(string bin_ins)
 }
 void R_format(map<string, string> &m_opcode,
               map<string, char> &m_format,
-              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
     string temp = line;
     int i = 0;
@@ -161,7 +162,8 @@ void R_format(map<string, string> &m_opcode,
     rs2 = alias[rs2];
     if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || alias.find(rd) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31 || (int)stoi(rd.substr(1)) > 31)
     {
-        cerr << "incorrect register value\n in line " << lineno << "\n";
+        cerr << "incorrect register value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     opcode = m_opcode[cmd];
@@ -175,16 +177,22 @@ void R_format(map<string, string> &m_opcode,
         funct7 = "0100000";
     string binenc = funct7 + rs2 + rs1 + funct3 + rd + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
 
-void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno)
+void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
     rs1 = "", rs2 = "", imm = "";
 
     trim(temp);
+    if(temp[temp.length()-1]!=')')
+    {
+        cerr << "missing paranthesis in line " << lineno << "\n";
+        myfile.close();
+        exit(0);
+    }
     while (i < temp.length() && temp[i] != ' ')
     {
         i++;
@@ -206,6 +214,12 @@ void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
     {
         i++;
     }
+    if(i==temp.length())
+    {
+        cerr << "missing paranthesis in line " << lineno << "\n";
+        myfile.close();
+        exit(0);
+    }
     imm = temp.substr(0, i);
     i++;
     temp = temp.substr(i);
@@ -220,11 +234,13 @@ void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
     if (imm.compare("") == 0)
     {
         cerr << "missing immediate value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     else if (rs1.compare("") == 0 || rs2.compare("") == 0)
     {
         cerr << "missing register value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     // using start check to start checking the starting point of numerical values after ignoring negative sign
@@ -237,19 +253,20 @@ void S_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
         if (c < '0' || c > '9')
         {
             cerr << "incorrect immediate value in line " << lineno << "\n";
+            myfile.close();
             exit(0);
         }
     }
 }
 
-void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
     string temp = line;
     int i = 0;
     string cmd, rs1, rs2, funct3, imm, opcode;
     if (command.compare("sb") == 0 || command.compare("sh") == 0 || command.compare("sw") == 0 || command.compare("sd") == 0)
     {
-        S_format_case(cmd, rs1, rs2, imm, line, lineno);
+        S_format_case(cmd, rs1, rs2, imm, line, lineno,myfile);
     }
     // cout << alias[rs2] << "\n";
     // cout << alias[rs1] << "\n";
@@ -259,6 +276,7 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31)
     {
         cerr << "incorrect register value\n in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     opcode = m_opcode[cmd];
@@ -271,8 +289,8 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     int value_imm = stoi(imm);
     if (value_imm < -2048 || value_imm > 2047)
     {
-        cout << value_imm << ",";
         cerr << "the immediate value is out of bounds of 12 bits in line no " << lineno << endl;
+        myfile.close();
         exit(0);
     }
     imm = toBinary(stoi(imm), 12);
@@ -285,10 +303,10 @@ void S_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     reverse(imm2.begin(), imm2.end());
     string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
 
-void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno, map<string, int> &label_lineno)
+void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &line, int lineno, map<string, int> &label_lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
@@ -315,6 +333,7 @@ void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
             if (label_lineno.find(label) == label_lineno.end())
             {
                 cout << "Incorrect Label Used" << "\n";
+                myfile.close();
                 exit(0);
             }
             // cout << lineno;
@@ -331,6 +350,7 @@ void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
             if (ind_sp == string::npos)
             {
                 cerr << "missing value in line " << lineno << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -342,6 +362,7 @@ void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
             if (ind_cm == string::npos)
             {
                 cerr << "missing register or immediate value in line " << lineno << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -350,7 +371,7 @@ void B_format_case(string &cmd, string &rs1, string &rs2, string &imm, string &l
     }
 }
 
-void B_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3, map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno)
+void B_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &m_funct3, map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
 
     string temp = line;
@@ -358,13 +379,14 @@ void B_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     string cmd, rs1, rs2, funct3, imm, opcode;
     if (command.compare("beq") == 0 || command.compare("bne") == 0 || command.compare("blt") == 0 || command.compare("bge") == 0 || command.compare("bltu") == 0 || command.compare("bgeu") == 0)
     {
-        B_format_case(cmd, rs1, rs2, imm, line, lineno, label_lineno);
+        B_format_case(cmd, rs1, rs2, imm, line, lineno, label_lineno,myfile);
     }
     rs1 = alias[rs1];
     rs2 = alias[rs2];
     if (alias.find(rs1) == alias.end() || alias.find(rs2) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rs2.substr(1)) > 31)
     {
         cerr << "incorrect register value\n in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
 
@@ -382,10 +404,10 @@ void B_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     reverse(imm2.begin(), imm2.end());
     string binenc = imm2 + rs2 + rs1 + funct3 + imm1 + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
 
-void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno)
+void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
@@ -419,6 +441,7 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
             if (ind_sp == string::npos)
             {
                 cerr << "missing value in line " << lineno << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -430,6 +453,7 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
             if (ind_cm == string::npos)
             {
                 cerr << "missing register or immediate value in line " << lineno << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -440,11 +464,13 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
     if (imm.compare("") == 0)
     {
         cerr << "missing immediate value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     else if (rs1.compare("") == 0 || rd.compare("") == 0)
     {
         cerr << "missing register value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     int start_check = 0;
@@ -456,18 +482,25 @@ void I_format_case1(string &cmd, string &rs1, string &rd, string &imm, string &l
         if (c < '0' || c > '9')
         {
             cerr << "incorrect immediate value in line " << lineno << "\n";
+            myfile.close();
             exit(0);
         }
     }
 }
 
-void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno)
+void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &line, int lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
     rs1 = "", rd = "", imm = "";
 
     trim(temp);
+    if(temp[temp.length()-1]!=')')
+    {
+        cerr << "missing paranthesis in line " << lineno << "\n";
+        myfile.close();
+        exit(0);
+    }
     while (i < temp.length() && temp[i] != ' ')
     {
         i++;
@@ -488,6 +521,12 @@ void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &l
     while (i < temp.length() && temp[i] != '(')
     {
         i++;
+    }
+    if(i==temp.length())
+    {
+        cerr << "missing paranthesis in line " << lineno << "\n";
+        myfile.close();
+        exit(0);
     }
     imm = temp.substr(0, i);
     i++;
@@ -511,11 +550,13 @@ void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &l
     if (imm.compare("") == 0)
     {
         cerr << "missing immediate value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     else if (rs1.compare("") == 0 || rd.compare("") == 0)
     {
         cerr << "missing register value in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
 
@@ -529,6 +570,7 @@ void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &l
         if (c < '0' || c > '9')
         {
             cerr << "incorrect immediate value in line " << lineno << "\n";
+            myfile.close();
             exit(0);
         }
     }
@@ -536,20 +578,20 @@ void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &l
 
 void I_format(map<string, string> &m_opcode,
               map<string, char> &m_format,
-              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
     string temp = line;
     int i = 0;
     string cmd, rs1, rd, funct3, imm, opcode;
     if (command.compare("addi") == 0 || command.compare("xori") == 0 || command.compare("ori") == 0 || command.compare("andi") == 0 || command.compare("slli") == 0 || command.compare("srli") == 0 || command.compare("srai") == 0)
     {
-        I_format_case1(cmd, rs1, rd, imm, line, lineno);
+        I_format_case1(cmd, rs1, rd, imm, line, lineno,myfile);
     }
     else
     {
         // adding format of case 2
         // if(command.compare("jalr")!=0)
-        I_format_case2(cmd, rs1, rd, imm, line, lineno);
+        I_format_case2(cmd, rs1, rd, imm, line, lineno,myfile);
         // else
         // I_format_case2(cmd, imm, rd, rs1, line,lineno);
     }
@@ -561,6 +603,7 @@ void I_format(map<string, string> &m_opcode,
     if (alias.find(rs1) == alias.end() || alias.find(rd) == alias.end() || (int)stoi(rs1.substr(1)) > 31 || (int)stoi(rd.substr(1)) > 31)
     {
         cerr << "incorrect register value\n in line " << lineno << "\n";
+        myfile.close();
         exit(0);
     }
     opcode = m_opcode[cmd];
@@ -637,6 +680,7 @@ void I_format(map<string, string> &m_opcode,
         if (cnt > 6)
         {
             cerr << " immediate value for shifting is out of range on lineno " << lineno << "\n";
+            myfile.close();
             exit(0);
         }
         else
@@ -657,10 +701,10 @@ void I_format(map<string, string> &m_opcode,
     }
     string binenc = imm + rs1 + funct3 + rd + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
 
-void U_format_case(string &cmd, string &rd, string &imm, string &line, int lineno)
+void U_format_case(string &cmd, string &rd, string &imm, string &line, int lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
@@ -690,6 +734,7 @@ void U_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             if (ind_sp == string::npos)
             {
                 cerr << "missing value in line " << lineno + 1 << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -701,6 +746,7 @@ void U_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             if (ind_cm == string::npos)
             {
                 cerr << "missing register or immediate value or label in line " << lineno + 1 << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -711,16 +757,17 @@ void U_format_case(string &cmd, string &rd, string &imm, string &line, int linen
 
 void U_format(map<string, string> &m_opcode,
               map<string, char> &m_format,
-              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno)
+              map<string, int> &m_funct3, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
     string temp = line;
     int i = 0;
     string cmd, rd, imm, opcode;
-    U_format_case(cmd,rd,imm,line,lineno);
+    U_format_case(cmd,rd,imm,line,lineno,myfile);
     rd = alias[rd];
     if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
     {
         cerr << "incorrect register value\n in line " << lineno + 1 << "\n";
+        myfile.close();
         exit(0);
     }
     opcode = m_opcode[cmd];
@@ -732,6 +779,7 @@ void U_format(map<string, string> &m_opcode,
     if(value_imm<0||value_imm>(ll)((1LL<<32)-1))
     {
         cerr << "incorrect immediate value in line " << lineno + 1 << "\n";
+        myfile.close();
         exit(0);
     }
     rd = toBinary(stoi(rd.substr(1)),5);
@@ -739,9 +787,9 @@ void U_format(map<string, string> &m_opcode,
     imm=imm.substr(12,20);
     string binenc = imm + rd + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
-void J_format_case(string &cmd, string &rd, string &imm, string &line, int lineno, map<string, int> &label_lineno)
+void J_format_case(string &cmd, string &rd, string &imm, string &line, int lineno, map<string, int> &label_lineno,ofstream& myfile)
 {
     string temp = line;
     int i = 0;
@@ -766,9 +814,11 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
                 if (label.size() == 0)
                 {
                     cerr << "missing register or immediate value or label in line " << lineno + 1 << "\n";
+                    myfile.close();
                     exit(0);
                 }
                 cout << "Incorrect Label Used in line number " << lineno + 1 << "\n";
+                myfile.close();
                 exit(0);
             }
             int val = (label_lineno[label] - lineno - 1) * 4;
@@ -784,6 +834,7 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             if (ind_sp == string::npos)
             {
                 cerr << "missing value in line " << lineno + 1 << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_sp + 1);
@@ -795,6 +846,7 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
             if (ind_cm == string::npos)
             {
                 cerr << "missing register or immediate value or label in line " << lineno + 1 << "\n";
+                myfile.close();
                 exit(0);
             }
             temp = temp.substr(ind_cm + 1);
@@ -803,7 +855,7 @@ void J_format_case(string &cmd, string &rd, string &imm, string &line, int linen
     }
 }
 
-void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno)
+void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<string, int> &label_lineno, map<string, string> &alias, string &line, string &command, int lineno, ofstream& myfile)
 {
 
     string temp = line;
@@ -811,13 +863,14 @@ void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     string cmd, rd, funct3, imm, opcode;
     if (command.compare("jal") == 0)
     {
-        J_format_case(cmd, rd, imm, line, lineno, label_lineno);
+        J_format_case(cmd, rd, imm, line, lineno, label_lineno,myfile);
     }
     rd = alias[rd];
 
     if (alias.find(rd) == alias.end() || (int)stoi(rd.substr(1)) > 31)
     {
         cerr << "incorrect register value\n in line " << lineno + 1 << "\n";
+        myfile.close();
         exit(0);
     }
 
@@ -830,7 +883,7 @@ void J_format(map<string, string> &m_opcode, map<string, char> &m_format, map<st
     reverse(imm.begin(), imm.end());
     string binenc = imm + rd + opcode;
     string hexenc = to_hex(binenc);
-    cout << hexenc << "\n";
+    myfile << hexenc<<"\n";
 }
 
 int main()
@@ -964,7 +1017,8 @@ int main()
     string filename = "input.s";
 
     ifstream infile(filename);
-
+    ofstream myfile;
+    myfile.open ("output.hex");
     if (!infile)
     {
         cerr << "Error opening file: " << filename << endl;
@@ -1009,30 +1063,31 @@ int main()
             char format = m_format[m_opcode[firstWord]];
             if (format == 'R')
             {
-                R_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno);
+                R_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno,myfile);
             }
             else if (format == 'I')
             {
-                I_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno);
+                I_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno,myfile);
             }
             else if (format == 'S')
             {
-                S_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno);
+                S_format(m_opcode, m_format, m_funct3, alias, newline, firstWord, lineno,myfile);
             }
             else if (format == 'B')
             {
-                B_format(m_opcode, m_format, m_funct3, label_lineno, alias, newline, firstWord, i);
+                B_format(m_opcode, m_format, m_funct3, label_lineno, alias, newline, firstWord, i,myfile);
             }
             else if (format == 'J')
             {
-                J_format(m_opcode, m_format, label_lineno, alias, newline, firstWord, i);
+                J_format(m_opcode, m_format, label_lineno, alias, newline, firstWord, i,myfile);
             }
             else if (format == 'U')
             {
-                U_format(m_opcode, m_format, label_lineno, alias, newline, firstWord, i);
+                U_format(m_opcode, m_format, label_lineno, alias, newline, firstWord, i,myfile);
             }
         }
     }
     infile.close();
+    myfile.close();
     return 0;
 }
