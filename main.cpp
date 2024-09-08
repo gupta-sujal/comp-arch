@@ -544,6 +544,13 @@ void I_format_case2(string &cmd, string &rs1, string &rd, string &imm, string &l
         rs1 = imm;
         imm = t;
         // swap(rs1,imm);
+            int value_imm = stoi(imm);
+        if (value_imm < -2048 || value_imm > 2047)
+        {
+            cerr << "the immediate value is out of bounds of 12 bits in line no " << lineno << endl;
+            myfile.close();
+            exit(0);
+        }
     }
     // cout<<cmd<<","<<rd<<","<<rs1<<","<<imm<<",\n";
     // cout<<"imm is "<<imm<< ",\n";
